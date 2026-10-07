@@ -131,8 +131,8 @@ test: $(BIN)
 	@echo "=== testing MCP tools/call system_posture ==="
 	@printf '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"system_posture","arguments":{}}}\n' | OODA_NO_JAIL=1 ./$(BIN) --mcp | grep -q "uptime_seconds" && echo "PASS: MCP system_posture"
 	@echo "=== testing double-run determinism ==="
-	@OODA_NO_JAIL=1 ./$(BIN) --json > .ooda-cache/run1.txt 2>&1 || true; \
-	OODA_NO_JAIL=1 ./$(BIN) --json > .ooda-cache/run2.txt 2>&1 || true; \
+	@OODA_NO_JAIL=1 ./$(BIN) --json | grep -v -E '"(memory|uptime)"' > .ooda-cache/run1.txt 2>&1 || true; \
+	OODA_NO_JAIL=1 ./$(BIN) --json | grep -v -E '"(memory|uptime)"' > .ooda-cache/run2.txt 2>&1 || true; \
 	diff -u .ooda-cache/run1.txt .ooda-cache/run2.txt && echo "PASS: double-run output is identical"
 	@echo "ALL TESTS PASSED"
 
