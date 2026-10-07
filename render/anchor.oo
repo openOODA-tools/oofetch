@@ -1,0 +1,14 @@
+// # Render Subsystem Anchor
+//
+// Logline: Re-exports theme hydration, column formatting, and JSON encoders.
+//
+// Setup: Pure shim re-exporting render domain pages.
+//
+// Beats:
+//   1. Re-export theme configuration resolver.
+//   2. Re-export two-column terminal fetch layout renderer.
+//   3. Re-export JSON metrics envelope serializer.
+
+import "render_theme.oo";
+import "render_fetch.oo";
+import "render_json.oo";

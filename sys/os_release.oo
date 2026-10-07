@@ -1,0 +1,90 @@
+// # OS Release Parser - Distro Identity Extractor
+//
+// Logline: Ingests /etc/os-release to discover operating system distribution name and version.
+//
+// Setup: Requires FsReadCap. Parses standard KEY=VALUE and quoted properties.
+//
+// Beats:
+//   1. Read /etc/os-release or fallback /usr/lib/os-release with capability.
+//   2. Parse PRETTY_NAME, NAME, ID, and VERSION_ID key bindings.
+//   3. Strip encapsulating quotes and construct OsRelease identity record.
+
+pub type OsRelease = struct {
+    pretty_name: String,
+    name: String,
+    id: String,
+    version_id: String
+};
+
+fn strip_quotes(s: String) -> String {
+    let t: String = str_trim(s);
+    let n: Int = chars_len(t);
+    if n >= 2 {
+        let first: String = char_at(t, 0);
+        let last: String = char_at(t, n - 1);
+        if (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            return str_slice(t, 1, n - 1);
+        }
+    }
+    return t;
+}
+
+fn parse_os_key(content: String, key: String) -> String {
+    let n: Int = chars_len(content);
+    let mut cur: String = "";
+    let mut i: Int = 0;
+    let target: String = key + "=";
+    while i < n {
+        let c: String = char_at(content, i);
+        if c == "\n" {
+            let t: String = str_trim(cur);
+            if str_starts_with(t, target) {
+                let rest: String = str_slice(t, chars_len(target), chars_len(t));
+                return strip_quotes(rest);
+            }
+            cur = "";
+        } else if c != "\r" {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" {
+        let t: String = str_trim(cur);
+        if str_starts_with(t, target) {
+            let rest: String = str_slice(t, chars_len(target), chars_len(t));
+            return strip_quotes(rest);
+        }
+    }
+    return "";
+}
+
+pub fn collect_os_release(fs: &FsReadCap) -> OsRelease {
+    let mut r: Result[String, String] = read_file(fs, "/etc/os-release");
+    if r.is_err() {
+        r = read_file(fs, "/usr/lib/os-release");
+    }
+    if r.is_err() {
+        return OsRelease {
+            pretty_name: "Linux",
+            name: "Linux",
+            id: "linux",
+            version_id: ""
+        };
+    }
+    let content: String = match r { Ok(s) => s, Err(_) => "" };
+    let pretty: String = parse_os_key(content, "PRETTY_NAME");
+    let name: String = parse_os_key(content, "NAME");
+    let id: String = parse_os_key(content, "ID");
+    let ver: String = parse_os_key(content, "VERSION_ID");
+
+    let p: String = if pretty != "" { pretty } else if name != "" { name } else { "Linux" };
+    let n_val: String = if name != "" { name } else { "Linux" };
+    let id_val: String = if id != "" { id } else { "linux" };
+
+    return OsRelease {
+        pretty_name: p,
+        name: n_val,
+        id: id_val,
+        version_id: ver
+    };
+}

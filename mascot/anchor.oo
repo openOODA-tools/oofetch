@@ -1,0 +1,12 @@
+// # Mascot Subsystem Anchor
+//
+// Logline: Re-exports mascot droid vectors and distribution emblem artists.
+//
+// Setup: Pure shim re-exporting mascot domain pages.
+//
+// Beats:
+//   1. Re-export mascot art vectors.
+//   2. Re-export distribution emblem vectors.
+
+import "mascot_art.oo";
+import "distro_art.oo";

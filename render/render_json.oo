@@ -1,0 +1,58 @@
+// # Render JSON - Machine-Readable Fetch Envelope
+//
+// Logline: Serializes collected host posture and hardware metrics into JSON standard payload.
+//
+// Setup: Pure string formatting. Escapes strings and emits standard key-value envelope.
+//
+// Beats:
+//   1. Escape input strings to avoid injection in JSON structure.
+//   2. Format JSON key-value pairs across system posture fields.
+//   3. Wrap into root JSON object with trailing newline.
+
+fn escape_json_str(s: String) -> String {
+    let n: Int = chars_len(s);
+    let mut out: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "\\" { out = out + "\\\\"; }
+        else if c == "\"" { out = out + "\\\""; }
+        else if c == "\n" { out = out + "\\n"; }
+        else if c == "\r" { out = out + "\\r"; }
+        else if c == "\t" { out = out + "\\t"; }
+        else { out = out + c; }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn render_system_json(
+    user: String,
+    hostname: String,
+    os_name: String,
+    machine: String,
+    kernel: String,
+    uptime_fmt: String,
+    packages_fmt: String,
+    shell: String,
+    terminal: String,
+    cpu_fmt: String,
+    mem_fmt: String,
+    theme: String
+) -> String {
+    let mut out: String = "{\n";
+    out = out + "  \"user\": \"" + escape_json_str(user) + "\",\n";
+    out = out + "  \"hostname\": \"" + escape_json_str(hostname) + "\",\n";
+    out = out + "  \"os\": \"" + escape_json_str(os_name) + "\",\n";
+    out = out + "  \"machine\": \"" + escape_json_str(machine) + "\",\n";
+    out = out + "  \"kernel\": \"" + escape_json_str(kernel) + "\",\n";
+    out = out + "  \"uptime\": \"" + escape_json_str(uptime_fmt) + "\",\n";
+    out = out + "  \"packages\": \"" + escape_json_str(packages_fmt) + "\",\n";
+    out = out + "  \"shell\": \"" + escape_json_str(shell) + "\",\n";
+    out = out + "  \"terminal\": \"" + escape_json_str(terminal) + "\",\n";
+    out = out + "  \"cpu\": \"" + escape_json_str(cpu_fmt) + "\",\n";
+    out = out + "  \"memory\": \"" + escape_json_str(mem_fmt) + "\",\n";
+    out = out + "  \"theme\": \"" + escape_json_str(theme) + "\"\n";
+    out = out + "}\n";
+    return out;
+}

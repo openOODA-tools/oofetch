@@ -1,0 +1,125 @@
+// # oofetch Entry Point
+//
+// Logline: Argument gate and pipeline orchestrator for sovereign system fetch and showcase.
+//
+// Setup: Demands FsReadCap for proc/sys data, ProcessCap for exit status, and EnvCap.
+//
+// Beats:
+//   1. Handle --help, --version, and --mcp early before execution pipeline.
+//   2. Ingest system posture, release, CPU, memory, uptime, and package metrics.
+//   3. Render two-column terminal fetch layout or machine-readable JSON envelope.
+
+import "std/fs/process/env.oo";
+import "proc/meminfo.oo";
+import "proc/cpuinfo.oo";
+import "proc/uptime.oo";
+import "sys/os_release.oo";
+import "sys/host_info.oo";
+import "sys/packages.oo";
+import "mascot/mascot_art.oo";
+import "mascot/distro_art.oo";
+import "render/render_theme.oo";
+import "render/render_fetch.oo";
+import "render/render_json.oo";
+import "ipc/fetch_opts.oo";
+import "ipc/mcp_serve.oo";
+
+fn render_help() -> String {
+    return "oofetch 0.1.0 (openOODA sovereign system fetch)\n"
+        + "usage: oofetch [options]\n"
+        + "\n"
+        + "Display host architecture, operating system posture, and theme swatches.\n"
+        + "\n"
+        + "Options:\n"
+        + "  -h, --help           display this help and exit\n"
+        + "  -v, --version        output version information and exit\n"
+        + "      --json           output system posture formatted as JSON\n"
+        + "      --no-color       disable ANSI color escapes\n"
+        + "      --color          force ANSI color escapes\n"
+        + "      --theme <name>   override active oote theme\n"
+        + "      --logo <type>    select art type: 'mascot' or 'distro' (default: mascot)\n"
+        + "      --mcp            start Model Context Protocol stdio server\n";
+}
+
+fn detect_color_allowed(env: &EnvCap, opts: FetchOpts) -> Bool {
+    if opts.no_color { return false; }
+    if opts.force_color { return true; }
+    let no_col: Result[String, String] = env_get(env, "NO_COLOR");
+    if no_col.is_ok() {
+        let v: String = match no_col { Ok(s) => s, Err(_) => "" };
+        if chars_len(v) > 0 { return false; }
+    }
+    let ooda_no: Result[String, String] = env_get(env, "OODA_NO_COLOR");
+    if ooda_no.is_ok() {
+        let v2: String = match ooda_no { Ok(s) => s, Err(_) => "" };
+        if chars_len(v2) > 0 { return false; }
+    }
+    let t_res: Result[String, String] = env_get(env, "TERM");
+    let term: String = match t_res { Ok(s) => s, Err(_) => "" };
+    if term == "dumb" { return false; }
+    return true;
+}
+
+pub fn main(fs: &FsReadCap, proc_cap: &ProcessCap, env: &EnvCap, args: List[String]) -> Result[Int, String] {
+    let opts: FetchOpts = parse_fetch_args(args);
+
+    if opts.show_help {
+        print(render_help());
+        return Ok(0);
+    }
+
+    if opts.show_version {
+        print("oofetch 0.1.0 (openOODA sovereign system fetch)\n");
+        return Ok(0);
+    }
+
+    if opts.mcp_mode {
+        run_mcp_server(fs, env);
+        return Ok(0);
+    }
+
+    if chars_len(opts.error_msg) > 0 {
+        print("oofetch: " + opts.error_msg + "\nTry 'oofetch --help' for more information.\n");
+        process_exit(2);
+        return Ok(2);
+    }
+
+    let os_rel: OsRelease = collect_os_release(fs);
+    let host: HostReport = collect_host_info(fs, env);
+    let cpu: CpuReport = collect_cpuinfo(fs);
+    let mem: MemReport = collect_meminfo(fs);
+    let up: UptimeReport = collect_uptime(fs);
+    let pkg: PkgReport = collect_packages(fs, os_rel.id);
+
+    let active_theme: String = if opts.theme_override != "" {
+        opts.theme_override
+    } else {
+        resolve_fetch_theme(fs, env)
+    };
+
+    if opts.json_mode {
+        let json_text: String = render_system_json(
+            host.user, host.hostname, os_rel.pretty_name, host.machine,
+            host.kernel, up.formatted, pkg.formatted, host.shell,
+            host.terminal, cpu.formatted, mem.formatted, active_theme
+        );
+        print(json_text);
+        return Ok(0);
+    }
+
+    let color_on: Bool = detect_color_allowed(env, opts);
+    let art: List[String] = if opts.logo_mode == "distro" {
+        distro_lines(os_rel.id)
+    } else {
+        mascot_lines("idle")
+    };
+
+    let output: String = render_two_columns(
+        art, host.user, host.hostname, os_rel.pretty_name, host.machine,
+        host.kernel, up.formatted, pkg.formatted, host.shell,
+        host.terminal, cpu.formatted, mem.formatted, active_theme, color_on
+    );
+
+    print(output);
+    return Ok(0);
+}

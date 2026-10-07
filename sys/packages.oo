@@ -1,0 +1,114 @@
+// # Package Manager Scanner - Installed Software Tally
+//
+// Logline: Discovers active package manager and tallies installed packages posture.
+//
+// Setup: Demands FsReadCap. Inspects local package databases for Arch, Debian, and Fedora.
+//
+// Beats:
+//   1. Inspect pacman local database under /var/lib/pacman/local.
+//   2. Inspect dpkg status database under /var/lib/dpkg/status.
+//   3. Inspect RPM sqlite database under /usr/lib/sysimage/rpm or /var/lib/rpm.
+
+import "std/fs/os/fs.oo";
+
+pub type PkgReport = struct {
+    count: Int,
+    manager: String,
+    formatted: String
+};
+
+fn count_pacman_packages(fs: &FsReadCap) -> Int {
+    if !fs_is_dir(fs, "/var/lib/pacman/local") { return 0; }
+    let entries: List[String] = fs_read_dir(fs, "/var/lib/pacman/local");
+    let n: Int = list_len(entries);
+    let mut count: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let name: String = list_get(entries, i);
+        if name != "." && name != ".." && chars_len(name) > 0 {
+            if fs_is_dir(fs, "/var/lib/pacman/local/" + name) {
+                count = count + 1;
+            }
+        }
+        i = i + 1;
+    }
+    return count;
+}
+
+fn count_dpkg_packages(fs: &FsReadCap) -> Int {
+    let r: Result[String, String] = read_file(fs, "/var/lib/dpkg/status");
+    if r.is_err() { return 0; }
+    let content: String = match r { Ok(s) => s, Err(_) => "" };
+    let n: Int = chars_len(content);
+    let mut count: Int = 0;
+    let mut cur: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(content, i);
+        if c == "\n" {
+            if str_starts_with(str_trim(cur), "Package:") {
+                count = count + 1;
+            }
+            cur = "";
+        } else if c != "\r" {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    return count;
+}
+
+fn count_rpm_packages(fs: &FsReadCap) -> Int {
+    if fs_file_size(fs, "/usr/lib/sysimage/rpm/rpmdb.sqlite") >= 0 || fs_file_size(fs, "/var/lib/rpm/rpmdb.sqlite") >= 0 || fs_file_size(fs, "/var/lib/rpm/Packages") >= 0 {
+        if fs_is_dir(fs, "/usr/share/licenses") {
+            let entries: List[String] = fs_read_dir(fs, "/usr/share/licenses");
+            let n: Int = list_len(entries);
+            let mut count: Int = 0;
+            let mut i: Int = 0;
+            while i < n {
+                let name: String = list_get(entries, i);
+                if name != "." && name != ".." { count = count + 1; }
+                i = i + 1;
+            }
+            if count > 0 { return count; }
+        }
+        return 1;
+    }
+    return 0;
+}
+
+pub fn collect_packages(fs: &FsReadCap, distro_id: String) -> PkgReport {
+    let d: String = str_trim(distro_id);
+
+    if str_contains(d, "fedora") || str_contains(d, "rhel") || str_contains(d, "centos") {
+        let rpm_n: Int = count_rpm_packages(fs);
+        if rpm_n > 0 {
+            return PkgReport { count: rpm_n, manager: "rpm", formatted: to_string(rpm_n) + " (rpm)" };
+        }
+    } else if str_contains(d, "arch") || str_contains(d, "manjaro") {
+        let pacman_n: Int = count_pacman_packages(fs);
+        if pacman_n > 0 {
+            return PkgReport { count: pacman_n, manager: "pacman", formatted: to_string(pacman_n) + " (pacman)" };
+        }
+    } else if str_contains(d, "debian") || str_contains(d, "ubuntu") {
+        let dpkg_n: Int = count_dpkg_packages(fs);
+        if dpkg_n > 0 {
+            return PkgReport { count: dpkg_n, manager: "dpkg", formatted: to_string(dpkg_n) + " (dpkg)" };
+        }
+    }
+
+    let pacman_n: Int = count_pacman_packages(fs);
+    if pacman_n > 0 {
+        return PkgReport { count: pacman_n, manager: "pacman", formatted: to_string(pacman_n) + " (pacman)" };
+    }
+    let dpkg_n: Int = count_dpkg_packages(fs);
+    if dpkg_n > 0 {
+        return PkgReport { count: dpkg_n, manager: "dpkg", formatted: to_string(dpkg_n) + " (dpkg)" };
+    }
+    let rpm_n: Int = count_rpm_packages(fs);
+    if rpm_n > 0 {
+        return PkgReport { count: rpm_n, manager: "rpm", formatted: to_string(rpm_n) + " (rpm)" };
+    }
+
+    return PkgReport { count: 0, manager: "native", formatted: "0 (native)" };
+}

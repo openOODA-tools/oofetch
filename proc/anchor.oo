@@ -1,0 +1,14 @@
+// # Proc Subsystem Anchor
+//
+// Logline: Re-exports memory, cpu, and uptime proc filesystem collectors.
+//
+// Setup: Pure shim re-exporting proc domain pages.
+//
+// Beats:
+//   1. Re-export meminfo collector.
+//   2. Re-export cpuinfo collector.
+//   3. Re-export uptime collector.
+
+import "meminfo.oo";
+import "cpuinfo.oo";
+import "uptime.oo";

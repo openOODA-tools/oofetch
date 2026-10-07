@@ -1,0 +1,85 @@
+// # Fetch Options Parser - Command-Line Interface Gate
+//
+// Logline: Decodes CLI flags into strongly typed options for fetch rendering and server mode.
+//
+// Setup: Pure string scanning. Validates flags and positional arguments deterministically.
+//
+// Beats:
+//   1. Initialize option defaults for theming, logo type, and color posture.
+//   2. Iterate command-line tokens and decode recognized long and short options.
+//   3. Handle unknown options with friendly error diagnostic and return structure.
+
+pub type FetchOpts = struct {
+    show_help: Bool,
+    show_version: Bool,
+    json_mode: Bool,
+    no_color: Bool,
+    force_color: Bool,
+    theme_override: String,
+    logo_mode: String,
+    mcp_mode: Bool,
+    error_msg: String
+};
+
+pub fn default_fetch_opts() -> FetchOpts {
+    return FetchOpts {
+        show_help: false,
+        show_version: false,
+        json_mode: false,
+        no_color: false,
+        force_color: false,
+        theme_override: "",
+        logo_mode: "mascot",
+        mcp_mode: false,
+        error_msg: ""
+    };
+}
+
+pub fn parse_fetch_args(args: List[String]) -> FetchOpts {
+    let mut opts: FetchOpts = default_fetch_opts();
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+
+    while i < n {
+        let arg: String = list_get(args, i);
+        if arg == "-h" || arg == "--help" {
+            opts.show_help = true;
+        } else if arg == "-v" || arg == "--version" {
+            opts.show_version = true;
+        } else if arg == "--json" {
+            opts.json_mode = true;
+        } else if arg == "--no-color" {
+            opts.no_color = true;
+        } else if arg == "--color" {
+            opts.force_color = true;
+        } else if arg == "--mcp" {
+            opts.mcp_mode = true;
+        } else if arg == "--theme" {
+            if i + 1 < n {
+                i = i + 1;
+                opts.theme_override = list_get(args, i);
+            } else {
+                opts.error_msg = "--theme requires an argument";
+                return opts;
+            }
+        } else if str_starts_with(arg, "--theme=") {
+            opts.theme_override = str_slice(arg, 8, chars_len(arg));
+        } else if arg == "--logo" {
+            if i + 1 < n {
+                i = i + 1;
+                opts.logo_mode = list_get(args, i);
+            } else {
+                opts.error_msg = "--logo requires an argument (mascot or distro)";
+                return opts;
+            }
+        } else if str_starts_with(arg, "--logo=") {
+            opts.logo_mode = str_slice(arg, 7, chars_len(arg));
+        } else if str_starts_with(arg, "-") {
+            opts.error_msg = "unrecognized option: " + arg;
+            return opts;
+        }
+        i = i + 1;
+    }
+
+    return opts;
+}

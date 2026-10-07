@@ -1,0 +1,10 @@
+Package: oofetch
+Version: 0.1.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign system fetch and environment showcase
+ A fastfetch/neofetch drop-in replacement written in pure openOODA, featuring
+ negative-trust capability security, instant terminal rendering, oote theme swatches,
+ and a first-class MCP surface for agent callers.

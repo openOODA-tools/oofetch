@@ -1,0 +1,16 @@
+// # oofetch Project Anchor
+//
+// Logline: Names the five oofetch domains and re-exports root subsystem anchors.
+//
+// Setup: Pure shim importing subsystem anchors.
+//
+// Beats:
+//   1. Re-export proc and sys subsystems.
+//   2. Re-export mascot and render subsystems.
+//   3. Re-export ipc subsystem.
+
+import "proc/anchor.oo";
+import "sys/anchor.oo";
+import "mascot/anchor.oo";
+import "render/anchor.oo";
+import "ipc/anchor.oo";

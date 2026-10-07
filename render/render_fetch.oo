@@ -1,0 +1,108 @@
+// # Render Fetch - Terminal Column Alignment Engine
+//
+// Logline: Composes two-column terminal fetch layout pairing mascot art with system metrics.
+//
+// Setup: Pure string assembly. Respects color toggles and terminal column dimensions.
+//
+// Beats:
+//   1. Build right-side metric lines formatted with key-value alignment.
+//   2. Pair each left-side art row with corresponding metric row.
+//   3. Render ANSI color swatch palette blocks at the bottom of the output.
+
+import "render_theme.oo";
+
+fn esc() -> String {
+    return bytes_to_str(bytes_push(bytes_new(), 27));
+}
+
+fn ansi_c(code: String, color_on: Bool) -> String {
+    if !color_on { return ""; }
+    return esc() + "[" + code + "m";
+}
+
+fn ansi_rst(color_on: Bool) -> String {
+    if !color_on { return ""; }
+    return esc() + "[0m";
+}
+
+fn format_key(key: String, color_on: Bool, accent: String) -> String {
+    return ansi_c("1;" + accent, color_on) + key + ansi_rst(color_on);
+}
+
+fn color_swatches(color_on: Bool) -> String {
+    if !color_on { return ""; }
+    let mut out: String = "               ";
+    let mut c: Int = 40;
+    while c <= 47 {
+        out = out + esc() + "[" + to_string(c) + "m   " + esc() + "[0m";
+        c = c + 1;
+    }
+    out = out + "\n               ";
+    let mut b: Int = 100;
+    while b <= 107 {
+        out = out + esc() + "[" + to_string(b) + "m   " + esc() + "[0m";
+        b = b + 1;
+    }
+    out = out + "\n";
+    return out;
+}
+
+pub fn render_two_columns(
+    art_lines: List[String],
+    user: String,
+    hostname: String,
+    os_name: String,
+    machine: String,
+    kernel: String,
+    uptime_fmt: String,
+    packages_fmt: String,
+    shell: String,
+    terminal: String,
+    cpu_fmt: String,
+    mem_fmt: String,
+    theme: String,
+    color_on: Bool
+) -> String {
+    let accent: String = theme_accent_color(theme);
+    let mut right: List[String] = list_new();
+
+    let title_line: String = ansi_c("1;" + accent, color_on) + user + ansi_rst(color_on) + "@" + ansi_c("1;" + accent, color_on) + hostname + ansi_rst(color_on);
+    right = list_push(right, title_line);
+
+    let div_len: Int = chars_len(user) + chars_len(hostname) + 1;
+    let mut div: String = "";
+    let mut d: Int = 0;
+    while d < div_len { div = div + "-"; d = d + 1; }
+    right = list_push(right, ansi_c("90", color_on) + div + ansi_rst(color_on));
+
+    right = list_push(right, format_key("OS:       ", color_on, accent) + os_name);
+    right = list_push(right, format_key("Host:     ", color_on, accent) + machine);
+    right = list_push(right, format_key("Kernel:   ", color_on, accent) + kernel);
+    right = list_push(right, format_key("Uptime:   ", color_on, accent) + uptime_fmt);
+    right = list_push(right, format_key("Packages: ", color_on, accent) + packages_fmt);
+    right = list_push(right, format_key("Shell:    ", color_on, accent) + shell);
+    right = list_push(right, format_key("Terminal: ", color_on, accent) + terminal);
+    right = list_push(right, format_key("CPU:      ", color_on, accent) + cpu_fmt);
+    right = list_push(right, format_key("Memory:   ", color_on, accent) + mem_fmt);
+    right = list_push(right, format_key("Theme:    ", color_on, accent) + theme);
+
+    let n_art: Int = list_len(art_lines);
+    let n_right: Int = list_len(right);
+    let total_rows: Int = if n_art > n_right { n_art } else { n_right };
+
+    let mut out: String = "\n";
+    let mut r: Int = 0;
+    while r < total_rows {
+        let left_str: String = if r < n_art {
+            ansi_c(accent, color_on) + list_get(art_lines, r) + ansi_rst(color_on)
+        } else {
+            "                 "
+        };
+        let right_str: String = if r < n_right { list_get(right, r) } else { "" };
+        out = out + left_str + "  " + right_str + "\n";
+        r = r + 1;
+    }
+
+    out = out + "\n" + color_swatches(color_on) + "\n";
+    return out;
+}

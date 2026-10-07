@@ -1,0 +1,66 @@
+// # Proc Uptime Collector - System Lifespan Metrics
+//
+// Logline: Ingests /proc/uptime to compute host uptime in days, hours, and minutes.
+//
+// Setup: Requires FsReadCap. Performs arithmetic interval breakdown without subprocesses.
+//
+// Beats:
+//   1. Read /proc/uptime to extract raw continuous system elapsed seconds.
+//   2. Parse integer portion representing total running seconds.
+//   3. Divide into days, hours, minutes, and compose human-readable interval.
+
+import "meminfo.oo";
+
+pub type UptimeReport = struct {
+    total_seconds: Int,
+    days: Int,
+    hours: Int,
+    minutes: Int,
+    formatted: String
+};
+
+fn parse_first_seconds(content: String) -> Int {
+    let t: String = str_trim(content);
+    let n: Int = chars_len(t);
+    let mut i: Int = 0;
+    let mut num_str: String = "";
+    while i < n {
+        let c: String = char_at(t, i);
+        if c == "." || c == " " || c == "\t" || c == "\n" {
+            break;
+        }
+        num_str = num_str + c;
+        i = i + 1;
+    }
+    return parse_proc_int(num_str);
+}
+
+pub fn collect_uptime(fs: &FsReadCap) -> UptimeReport {
+    let content: String = read_proc_text(fs, "/proc/uptime");
+    if content == "" {
+        return UptimeReport { total_seconds: 0, days: 0, hours: 0, minutes: 0, formatted: "Unknown" };
+    }
+    let secs: Int = parse_first_seconds(content);
+    let days: Int = secs / 86400;
+    let rem_d: Int = secs - (days * 86400);
+    let hours: Int = rem_d / 3600;
+    let rem_h: Int = rem_d - (hours * 3600);
+    let mins: Int = rem_h / 60;
+
+    let mut out: String = "";
+    if days > 0 {
+        out = out + to_string(days) + "d ";
+    }
+    if hours > 0 || days > 0 {
+        out = out + to_string(hours) + "h ";
+    }
+    out = out + to_string(mins) + "m";
+
+    return UptimeReport {
+        total_seconds: secs,
+        days: days,
+        hours: hours,
+        minutes: mins,
+        formatted: out
+    };
+}

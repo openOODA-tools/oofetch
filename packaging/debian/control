@@ -1,0 +1,14 @@
+Source: oofetch
+Section: utils
+Priority: optional
+Maintainer: openOODA-tools <ops@openooda.org>
+Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13)
+
+Package: oofetch
+Architecture: amd64
+Depends: libc6
+Description: Sovereign system fetch and environment showcase
+ A fastfetch/neofetch drop-in replacement written in pure openOODA, featuring
+ negative-trust capability security, instant terminal rendering, oote theme swatches,
+ and a first-class MCP surface for agent callers.

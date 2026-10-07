@@ -1,0 +1,96 @@
+// # Host Info Collector - Machine Identity and Hardware Context
+//
+// Logline: Ingests system posture, host identifiers, active shell, and kernel version.
+//
+// Setup: Requires FsReadCap and EnvCap. Performs reads across sysctl and dmi nodes.
+//
+// Beats:
+//   1. Resolve user name, active shell, and terminal emulator from environment.
+//   2. Read hostname, hardware product name, and kernel release version.
+//   3. Assemble HostReport data record for fetch rendering.
+
+import "std/fs/process/env.oo";
+import "proc/meminfo.oo";
+
+pub type HostReport = struct {
+    user: String,
+    hostname: String,
+    machine: String,
+    kernel: String,
+    shell: String,
+    terminal: String
+};
+
+fn extract_basename(path: String) -> String {
+    let t: String = str_trim(path);
+    let n: Int = chars_len(t);
+    let mut last_slash: Int = -1;
+    let mut i: Int = 0;
+    while i < n {
+        if char_at(t, i) == "/" {
+            last_slash = i;
+        }
+        i = i + 1;
+    }
+    if last_slash >= 0 && last_slash < n - 1 {
+        return str_slice(t, last_slash + 1, n);
+    }
+    return t;
+}
+
+fn read_line_file(fs: &FsReadCap, path: String, fallback: String) -> String {
+    let mut s: String = "";
+    let r: Result[String, String] = read_file(fs, path);
+    if r.is_ok() {
+        s = match r { Ok(v) => v, Err(_) => "" };
+    }
+    if s == "" {
+        s = read_proc_text(fs, path);
+    }
+    let trimmed: String = str_trim(s);
+    return if trimmed != "" { trimmed } else { fallback };
+}
+
+pub fn collect_host_info(fs: &FsReadCap, env: &EnvCap) -> HostReport {
+    let env_u: Result[String, String] = env_get(env, "USER");
+    let mut u: String = match env_u { Ok(s) => s, Err(_) => "" };
+    if u == "" {
+        let env_log: Result[String, String] = env_get(env, "LOGNAME");
+        u = match env_log { Ok(s) => s, Err(_) => "user" };
+    }
+
+    let mut h: String = read_line_file(fs, "/etc/hostname", "");
+    if h == "" {
+        h = read_line_file(fs, "/proc/sys/kernel/hostname", "localhost");
+    }
+
+    let mut m: String = read_line_file(fs, "/sys/devices/virtual/dmi/id/product_name", "");
+    if m == "" {
+        m = read_line_file(fs, "/sys/class/dmi/id/product_name", "");
+    }
+    if m == "" {
+        m = "PC / Generic";
+    }
+
+    let k: String = read_line_file(fs, "/proc/sys/kernel/osrelease", "Linux");
+
+    let env_s: Result[String, String] = env_get(env, "SHELL");
+    let raw_shell: String = match env_s { Ok(s) => s, Err(_) => "oosh" };
+    let sh: String = extract_basename(raw_shell);
+
+    let env_tp: Result[String, String] = env_get(env, "TERM_PROGRAM");
+    let mut term: String = match env_tp { Ok(s) => s, Err(_) => "" };
+    if term == "" {
+        let env_t: Result[String, String] = env_get(env, "TERM");
+        term = match env_t { Ok(s) => s, Err(_) => "xterm-256color" };
+    }
+
+    return HostReport {
+        user: u,
+        hostname: h,
+        machine: m,
+        kernel: k,
+        shell: sh,
+        terminal: term
+    };
+}

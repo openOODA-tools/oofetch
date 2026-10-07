@@ -1,0 +1,47 @@
+// # Mascot Art Generator - openOODA Droid Mascot Vectors
+//
+// Logline: Generates 8-line ASCII mascot art and prompt glyphs conditioned on emotional posture.
+//
+// Setup: Pure string assembly. Operates with zero ambient authority.
+//
+// Beats:
+//   1. Normalize input emotional posture label.
+//   2. Construct 8-line ASCII droid mascot vectors.
+//   3. Dispatch multi-line mascot array for two-column fetch rendering.
+
+pub fn mascot_glyph(emotion: String) -> String {
+    let em: String = str_trim(emotion);
+    if em == "happy" || em == "success" { return "[^_^]"; }
+    if em == "alert" || em == "warn" { return "[!_!]"; }
+    if em == "sleepy" || em == "idle" { return "[-_-]"; }
+    return "[o_o]";
+}
+
+pub fn mascot_lines(emotion: String) -> List[String] {
+    let em: String = str_trim(emotion);
+    let mut out: List[String] = list_new();
+
+    out = list_push(out, "      .---.      ");
+    out = list_push(out, "     /     \\     ");
+
+    if em == "happy" || em == "success" {
+        out = list_push(out, "    | (^) (^) |  ");
+        out = list_push(out, "     \\  v  /     ");
+    } else if em == "alert" || em == "warn" {
+        out = list_push(out, "    | (!) (!) |  ");
+        out = list_push(out, "     \\  o  /     ");
+    } else if em == "sleepy" {
+        out = list_push(out, "    | (-) (-) |  ");
+        out = list_push(out, "     \\  -  / z   ");
+    } else {
+        out = list_push(out, "    | () () |    ");
+        out = list_push(out, "     \\  -  /     ");
+    }
+
+    out = list_push(out, "     /|   |\\     ");
+    out = list_push(out, "    (_|   |_)    ");
+    out = list_push(out, "      d   b      ");
+    out = list_push(out, "     =======     ");
+
+    return out;
+}

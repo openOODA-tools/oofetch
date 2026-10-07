@@ -1,0 +1,118 @@
+// # MCP Stdio Server - Agent Fetch Surface
+//
+// Logline: Speaks Model Context Protocol over stdio providing host inspection tools for agents.
+//
+// Setup: Requires FsReadCap and EnvCap. Dispatches host_info and system_posture tools.
+//
+// Beats:
+//   1. Handle initialize and notifications/initialized lifecycle handshakes.
+//   2. Advertise host_info and system_posture tools with input schemas.
+//   3. Dispatch tools/call requests and return structured metrics envelope.
+
+import "sys/os_release.oo";
+import "sys/host_info.oo";
+import "sys/packages.oo";
+import "proc/meminfo.oo";
+import "proc/cpuinfo.oo";
+import "proc/uptime.oo";
+import "render/render_theme.oo";
+import "render/render_json.oo";
+import "json_field.oo";
+
+fn build_error(id: String, code: Int, msg: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"error\":{\"code\":" + to_string(code) + ",\"message\":\"" + json_escape(msg) + "\"}}";
+}
+
+fn build_tool_result(id: String, text: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape(text) + "\"}]}}";
+}
+
+fn handle_tool_call(fs: &FsReadCap, env: &EnvCap, id: String, req: String) -> String {
+    let params: String = json_field_raw(req, "params");
+    let tool_name: String = json_field_string(params, "name");
+
+    let os_rel: OsRelease = collect_os_release(fs);
+    let host: HostReport = collect_host_info(fs, env);
+    let cpu: CpuReport = collect_cpuinfo(fs);
+    let mem: MemReport = collect_meminfo(fs);
+    let up: UptimeReport = collect_uptime(fs);
+    let pkg: PkgReport = collect_packages(fs, os_rel.id);
+    let theme: String = resolve_fetch_theme(fs, env);
+
+    if tool_name == "host_info" {
+        let json_text: String = render_system_json(
+            host.user, host.hostname, os_rel.pretty_name, host.machine,
+            host.kernel, up.formatted, pkg.formatted, host.shell,
+            host.terminal, cpu.formatted, mem.formatted, theme
+        );
+        return build_tool_result(id, json_text);
+    }
+
+    if tool_name == "system_posture" {
+        let mut posture: String = "{\n";
+        posture = posture + "  \"uptime_seconds\": " + to_string(up.total_seconds) + ",\n";
+        posture = posture + "  \"memory_used_percent\": " + to_string(mem.percent) + ",\n";
+        posture = posture + "  \"cpu_cores\": " + to_string(cpu.cores) + ",\n";
+        posture = posture + "  \"package_count\": " + to_string(pkg.count) + ",\n";
+        posture = posture + "  \"package_manager\": \"" + json_escape(pkg.manager) + "\"\n";
+        posture = posture + "}\n";
+        return build_tool_result(id, posture);
+    }
+
+    return build_error(id, -32601, "unknown tool: " + tool_name);
+}
+
+fn handle_mcp_request(fs: &FsReadCap, env: &EnvCap, req: String) -> String {
+    let method: String = json_field_string(req, "method");
+    let raw_id: String = json_field_raw(req, "id");
+    let id: String = if chars_len(raw_id) == 0 { "null" } else { raw_id };
+
+    if method == "initialize" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"oofetch\",\"version\":\"0.1.0\"}}}";
+    }
+    if method == "notifications/initialized" {
+        return "";
+    }
+    if method == "tools/list" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":[{\"name\":\"host_info\",\"description\":\"Return comprehensive host identity, OS, kernel, and hardware metrics\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}},{\"name\":\"system_posture\",\"description\":\"Return numeric system health metrics including uptime, memory usage, and cores\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}]}}";
+    }
+    if method == "tools/call" {
+        return handle_tool_call(fs, env, id, req);
+    }
+    if method == "shutdown" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":null}";
+    }
+    return build_error(id, -32601, "method not found: " + method);
+}
+
+pub fn run_mcp_server(fs: &FsReadCap, env: &EnvCap) -> Int {
+    let mut buf: String = "";
+    let mut running: Bool = true;
+    while running {
+        let r: Result[String, String] = oo_read_stdin_chunk(fs, 100);
+        if !r.is_ok() {
+            running = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) == 0 {
+                running = false;
+            } else {
+                buf = buf + chunk;
+                let mut nl_pos: Int = str_index_of(buf, "\n");
+                while nl_pos >= 0 {
+                    let line: String = str_slice(buf, 0, nl_pos);
+                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                    let trimmed: String = str_trim(line);
+                    if chars_len(trimmed) > 0 {
+                        let reply: String = handle_mcp_request(fs, env, trimmed);
+                        if chars_len(reply) > 0 {
+                            println(reply);
+                        }
+                    }
+                    nl_pos = str_index_of(buf, "\n");
+                }
+            }
+        }
+    }
+    return 0;
+}

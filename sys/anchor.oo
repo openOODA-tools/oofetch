@@ -1,0 +1,14 @@
+// # Sys Subsystem Anchor
+//
+// Logline: Re-exports operating system release, host hardware, and package collectors.
+//
+// Setup: Pure shim re-exporting sys domain pages.
+//
+// Beats:
+//   1. Re-export OS release identity collector.
+//   2. Re-export host and hardware context collector.
+//   3. Re-export package tally collector.
+
+import "os_release.oo";
+import "host_info.oo";
+import "packages.oo";

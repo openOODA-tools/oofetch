@@ -1,0 +1,105 @@
+// # Proc Meminfo Collector - Memory Utilization Scanner
+//
+// Logline: Parses /proc/meminfo to calculate total, used, and percentage memory metrics.
+//
+// Setup: Requires FsReadCap. Pure string scanning and integer conversion.
+//
+// Beats:
+//   1. Ingest /proc/meminfo content with capability-bounded file reader.
+//   2. Extract MemTotal and MemAvailable values in kilobytes.
+//   3. Calculate used memory and format human-readable usage summary.
+
+
+import "std/fs/file/file_reader.oo";
+
+pub type MemReport = struct {
+    total_mib: Int,
+    used_mib: Int,
+    percent: Int,
+    formatted: String
+};
+
+pub fn read_proc_text(fs: &FsReadCap, path: String) -> String {
+    let r_open: Result[FileReader, String] = file_reader_open(fs, path);
+    if r_open.is_err() { return ""; }
+    let reader: FileReader = match r_open { Ok(r) => r, Err(_) => return "" };
+    let r_read: Result[String, String] = file_reader_read_all(fs, reader);
+    return match r_read { Ok(s) => s, Err(_) => "" };
+}
+
+fn digit_val(c: String) -> Int {
+    if c == "1" { return 1; }
+    if c == "2" { return 2; }
+    if c == "3" { return 3; }
+    if c == "4" { return 4; }
+    if c == "5" { return 5; }
+    if c == "6" { return 6; }
+    if c == "7" { return 7; }
+    if c == "8" { return 8; }
+    if c == "9" { return 9; }
+    return 0;
+}
+
+pub fn parse_proc_int(s: String) -> Int {
+    let t: String = str_trim(s);
+    let n: Int = chars_len(t);
+    let mut i: Int = 0;
+    let mut v: Int = 0;
+    while i < n {
+        let c: String = char_at(t, i);
+        if c == "0" || c == "1" || c == "2" || c == "3" || c == "4" || c == "5" || c == "6" || c == "7" || c == "8" || c == "9" {
+            v = v * 10 + digit_val(c);
+        } else if v > 0 {
+            break;
+        }
+        i = i + 1;
+    }
+    return v;
+}
+
+fn extract_mem_kb(content: String, key: String) -> Int {
+    let n: Int = chars_len(content);
+    let mut cur: String = "";
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(content, i);
+        if c == "\n" {
+            let t: String = str_trim(cur);
+            if str_starts_with(t, key) {
+                let rest: String = str_slice(t, chars_len(key), chars_len(t));
+                return parse_proc_int(rest);
+            }
+            cur = "";
+        } else if c != "\r" {
+            cur = cur + c;
+        }
+        i = i + 1;
+    }
+    if cur != "" && str_starts_with(str_trim(cur), key) {
+        return parse_proc_int(str_slice(str_trim(cur), chars_len(key), chars_len(cur)));
+    }
+    return 0;
+}
+
+pub fn collect_meminfo(fs: &FsReadCap) -> MemReport {
+    let content: String = read_proc_text(fs, "/proc/meminfo");
+    if content == "" {
+        return MemReport { total_mib: 0, used_mib: 0, percent: 0, formatted: "Unknown" };
+    }
+    let total_kb: Int = extract_mem_kb(content, "MemTotal:");
+    let avail_kb: Int = extract_mem_kb(content, "MemAvailable:");
+    let free_kb: Int = if avail_kb > 0 { avail_kb } else { extract_mem_kb(content, "MemFree:") };
+    let used_kb: Int = if total_kb > free_kb { total_kb - free_kb } else { 0 };
+
+    let total_mib: Int = total_kb / 1024;
+    let used_mib: Int = used_kb / 1024;
+    let pct: Int = if total_mib > 0 { (used_mib * 100) / total_mib } else { 0 };
+    let fmt: String = to_string(used_mib) + "MiB / " + to_string(total_mib) + "MiB (" + to_string(pct) + "%)";
+
+    return MemReport {
+        total_mib: total_mib,
+        used_mib: used_mib,
+        percent: pct,
+        formatted: fmt
+    };
+}

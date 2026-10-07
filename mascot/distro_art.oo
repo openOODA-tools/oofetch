@@ -1,0 +1,76 @@
+// # Distro Art Generator - Distribution ASCII Emblems
+//
+// Logline: Emits 8-line distribution ASCII vectors for Arch, Fedora, Debian, and Linux.
+//
+// Setup: Pure string assembly. Zero ambient authority.
+//
+// Beats:
+//   1. Normalize input distribution identifier.
+//   2. Match known distribution families (Fedora, Arch, Debian, Ubuntu).
+//   3. Return uniform 8-line ASCII art array for column alignment.
+
+fn distro_art_fedora() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "        _____    ");
+    out = list_push(out, "       /   __)-. ");
+    out = list_push(out, "      |  /  ___/ ");
+    out = list_push(out, "      | |  /     ");
+    out = list_push(out, "      | |  \\___  ");
+    out = list_push(out, "      |  \\___  ) ");
+    out = list_push(out, "       \\_____/'  ");
+    out = list_push(out, "                 ");
+    return out;
+}
+
+fn distro_art_arch() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "         /\\      ");
+    out = list_push(out, "        /  \\     ");
+    out = list_push(out, "       /\\   \\    ");
+    out = list_push(out, "      /      \\   ");
+    out = list_push(out, "     /   ,,   \\  ");
+    out = list_push(out, "    /   |  |  -\\ ");
+    out = list_push(out, "   /_-''    ''-_\\");
+    out = list_push(out, "                 ");
+    return out;
+}
+
+fn distro_art_debian() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "       ,---._    ");
+    out = list_push(out, "      /  __ \\   ");
+    out = list_push(out, "     |  /   \\ |  ");
+    out = list_push(out, "     | |  O | |  ");
+    out = list_push(out, "      \\ \\____/   ");
+    out = list_push(out, "       `-----'   ");
+    out = list_push(out, "                 ");
+    out = list_push(out, "                 ");
+    return out;
+}
+
+fn distro_art_linux() -> List[String] {
+    let mut out: List[String] = list_new();
+    out = list_push(out, "      .-------.  ");
+    out = list_push(out, "     /  O   O  \\ ");
+    out = list_push(out, "    |    (_)    |");
+    out = list_push(out, "     \\  \\___/  / ");
+    out = list_push(out, "      '-------'  ");
+    out = list_push(out, "       openOODA  ");
+    out = list_push(out, "                 ");
+    out = list_push(out, "                 ");
+    return out;
+}
+
+pub fn distro_lines(distro_id: String) -> List[String] {
+    let d: String = str_trim(distro_id);
+    if str_contains(d, "fedora") || str_contains(d, "rhel") || str_contains(d, "centos") {
+        return distro_art_fedora();
+    }
+    if str_contains(d, "arch") || str_contains(d, "manjaro") {
+        return distro_art_arch();
+    }
+    if str_contains(d, "debian") || str_contains(d, "ubuntu") {
+        return distro_art_debian();
+    }
+    return distro_art_linux();
+}
