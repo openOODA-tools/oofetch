@@ -15,6 +15,10 @@ import "std/fs/file/file_reader.oo";
 pub type MemReport = struct {
     total_mib: Int,
     used_mib: Int,
+    free_mib: Int,
+    avail_mib: Int,
+    swap_total_mib: Int,
+    swap_used_mib: Int,
     percent: Int,
     formatted: String
 };
@@ -84,21 +88,43 @@ fn extract_mem_kb(content: String, key: String) -> Int {
 pub fn collect_meminfo(fs: &FsReadCap) -> MemReport {
     let content: String = read_proc_text(fs, "/proc/meminfo");
     if content == "" {
-        return MemReport { total_mib: 0, used_mib: 0, percent: 0, formatted: "Unknown" };
+        return MemReport {
+            total_mib: 0,
+            used_mib: 0,
+            free_mib: 0,
+            avail_mib: 0,
+            swap_total_mib: 0,
+            swap_used_mib: 0,
+            percent: 0,
+            formatted: "Unknown"
+        };
     }
     let total_kb: Int = extract_mem_kb(content, "MemTotal:");
     let avail_kb: Int = extract_mem_kb(content, "MemAvailable:");
-    let free_kb: Int = if avail_kb > 0 { avail_kb } else { extract_mem_kb(content, "MemFree:") };
+    let raw_free_kb: Int = extract_mem_kb(content, "MemFree:");
+    let free_kb: Int = if avail_kb > 0 { avail_kb } else { raw_free_kb };
     let used_kb: Int = if total_kb > free_kb { total_kb - free_kb } else { 0 };
+
+    let swap_total_kb: Int = extract_mem_kb(content, "SwapTotal:");
+    let swap_free_kb: Int = extract_mem_kb(content, "SwapFree:");
+    let swap_used_kb: Int = if swap_total_kb > swap_free_kb { swap_total_kb - swap_free_kb } else { 0 };
 
     let total_mib: Int = total_kb / 1024;
     let used_mib: Int = used_kb / 1024;
+    let f_mib: Int = raw_free_kb / 1024;
+    let a_mib: Int = if avail_kb > 0 { avail_kb / 1024 } else { f_mib };
+    let sw_tot_mib: Int = swap_total_kb / 1024;
+    let sw_used_mib: Int = swap_used_kb / 1024;
     let pct: Int = if total_mib > 0 { (used_mib * 100) / total_mib } else { 0 };
     let fmt: String = to_string(used_mib) + "MiB / " + to_string(total_mib) + "MiB (" + to_string(pct) + "%)";
 
     return MemReport {
         total_mib: total_mib,
         used_mib: used_mib,
+        free_mib: f_mib,
+        avail_mib: a_mib,
+        swap_total_mib: sw_tot_mib,
+        swap_used_mib: sw_used_mib,
         percent: pct,
         formatted: fmt
     };

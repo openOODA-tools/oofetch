@@ -15,8 +15,11 @@ pub type FetchOpts = struct {
     json_mode: Bool,
     no_color: Bool,
     force_color: Bool,
+    no_logo: Bool,
     theme_override: String,
     logo_mode: String,
+    logo_distro: String,
+    mascot_name: String,
     mcp_mode: Bool,
     error_msg: String
 };
@@ -28,8 +31,11 @@ pub fn default_fetch_opts() -> FetchOpts {
         json_mode: false,
         no_color: false,
         force_color: false,
+        no_logo: false,
         theme_override: "",
         logo_mode: "mascot",
+        logo_distro: "",
+        mascot_name: "",
         mcp_mode: false,
         error_msg: ""
     };
@@ -52,6 +58,8 @@ pub fn parse_fetch_args(args: List[String]) -> FetchOpts {
             opts.no_color = true;
         } else if arg == "--color" {
             opts.force_color = true;
+        } else if arg == "--no-logo" {
+            opts.no_logo = true;
         } else if arg == "--mcp" {
             opts.mcp_mode = true;
         } else if arg == "--theme" {
@@ -67,13 +75,27 @@ pub fn parse_fetch_args(args: List[String]) -> FetchOpts {
         } else if arg == "--logo" {
             if i + 1 < n {
                 i = i + 1;
-                opts.logo_mode = list_get(args, i);
+                let val: String = list_get(args, i);
+                opts.logo_distro = val;
+                opts.logo_mode = val;
             } else {
-                opts.error_msg = "--logo requires an argument (mascot or distro)";
+                opts.error_msg = "--logo requires an argument";
                 return opts;
             }
         } else if str_starts_with(arg, "--logo=") {
-            opts.logo_mode = str_slice(arg, 7, chars_len(arg));
+            let val: String = str_slice(arg, 7, chars_len(arg));
+            opts.logo_distro = val;
+            opts.logo_mode = val;
+        } else if arg == "--mascot" {
+            if i + 1 < n {
+                i = i + 1;
+                opts.mascot_name = list_get(args, i);
+            } else {
+                opts.error_msg = "--mascot requires an argument";
+                return opts;
+            }
+        } else if str_starts_with(arg, "--mascot=") {
+            opts.mascot_name = str_slice(arg, 9, chars_len(arg));
         } else if str_starts_with(arg, "-") {
             opts.error_msg = "unrecognized option: " + arg;
             return opts;

@@ -8,6 +8,8 @@
 //   1. Re-export meminfo collector.
 //   2. Re-export cpuinfo collector.
 //   3. Re-export uptime collector.
+//   4. Expose unified hardware and lifespan ingestion primitives.
+//   5. Maintain strict capability containment.
 
 import "meminfo.oo";
 import "cpuinfo.oo";

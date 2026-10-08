@@ -1,0 +1,164 @@
+// # MCP Tool Dispatcher - Agent Fetch Surface
+//
+// Logline: Dispatches Model Context Protocol tool requests for host, posture, and mascots.
+//
+// Setup: Requires FsReadCap and EnvCap. Dispatches 4 typed agent tools.
+//
+// Beats:
+//   1. Construct JSON-RPC result and error envelopes.
+//   2. Define JSON Schema catalogue for the 4 fetch tools.
+//   3. Validate arguments and execute tools/call invocations.
+
+import "sys/os_release.oo";
+import "sys/host_info.oo";
+import "sys/packages.oo";
+import "proc/meminfo.oo";
+import "proc/cpuinfo.oo";
+import "proc/uptime.oo";
+import "render/render_theme.oo";
+import "render/render_json.oo";
+import "mascot/mascot_art.oo";
+import "mascot/distro_art.oo";
+import "json_field.oo";
+
+pub fn build_error(id: String, code: Int, msg: String) -> String {
+    let safe_id: String = if chars_len(id) == 0 { "null" } else { id };
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"error\":{\"code\":" + to_string(code) + ",\"message\":\"" + json_escape(msg) + "\"}}";
+}
+
+pub fn build_tool_result(id: String, text: String) -> String {
+    let safe_id: String = if chars_len(id) == 0 { "null" } else { id };
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape(text) + "\"}]}}";
+}
+
+pub fn tools_list_payload(id: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":["
+        + "{\"name\":\"host_info\",\"description\":\"Return comprehensive host identity, OS, kernel, arch, and system environment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}"
+        + ","
+        + "{\"name\":\"system_posture\",\"description\":\"Return numeric system health metrics including uptime, memory usage, and cores\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}"
+        + ","
+        + "{\"name\":\"query_hardware\",\"description\":\"Query detailed CPU model, vendor, cache size, total/free/available RAM, and swap usage\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}"
+        + ","
+        + "{\"name\":\"render_mascot\",\"description\":\"Render styled ASCII mascot or distribution logo art\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"Mascot or distro name (e.g. 'default', 'distro', 'arch', 'fedora', 'happy')\"},\"theme\":{\"type\":\"string\",\"description\":\"Optional theme name for ASCII styling\"}}}}"
+        + "]}}";
+}
+
+fn esc() -> String {
+    return bytes_to_str(bytes_push(bytes_new(), 27));
+}
+
+fn render_styled_art(lines: List[String], theme: String) -> String {
+    let accent: String = theme_accent_color(theme);
+    let mut out: String = "";
+    let n: Int = list_len(lines);
+    let mut i: Int = 0;
+    while i < n {
+        let line: String = list_get(lines, i);
+        if theme == "none" || theme == "plain" {
+            out = out + line + "\n";
+        } else {
+            out = out + esc() + "[" + accent + "m" + line + esc() + "[0m\n";
+        }
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn handle_tool_call(fs: &FsReadCap, env: &EnvCap, id: String, req: String) -> String {
+    let params: String = json_field_raw(req, "params");
+    let tool_name: String = json_field_string(params, "name");
+    let args: String = json_field_raw(params, "arguments");
+
+    if chars_len(tool_name) == 0 {
+        return build_error(id, -32602, "missing required parameter: name");
+    }
+
+    if tool_name == "host_info" {
+        let os_rel: OsRelease = collect_os_release(fs);
+        let host: HostReport = collect_host_info(fs, env);
+        let cpu: CpuReport = collect_cpuinfo(fs);
+        let mem: MemReport = collect_meminfo(fs);
+        let up: UptimeReport = collect_uptime(fs);
+        let pkg: PkgReport = collect_packages(fs, os_rel.id);
+        let theme: String = resolve_fetch_theme(fs, env);
+
+        let json_text: String = render_system_json(
+            host.user, host.hostname, os_rel.pretty_name, host.machine,
+            host.kernel, host.arch, up.formatted, pkg.formatted, host.shell,
+            host.terminal, cpu.formatted, mem.formatted, theme
+        );
+        return build_tool_result(id, json_text);
+    }
+
+    if tool_name == "system_posture" {
+        let os_rel: OsRelease = collect_os_release(fs);
+        let cpu: CpuReport = collect_cpuinfo(fs);
+        let mem: MemReport = collect_meminfo(fs);
+        let up: UptimeReport = collect_uptime(fs);
+        let pkg: PkgReport = collect_packages(fs, os_rel.id);
+
+        let mut posture: String = "{\n";
+        posture = posture + "  \"uptime_seconds\": " + to_string(up.total_seconds) + ",\n";
+        posture = posture + "  \"memory_used_percent\": " + to_string(mem.percent) + ",\n";
+        posture = posture + "  \"cpu_cores\": " + to_string(cpu.cores) + ",\n";
+        posture = posture + "  \"package_count\": " + to_string(pkg.count) + ",\n";
+        posture = posture + "  \"package_manager\": \"" + json_escape(pkg.manager) + "\"\n";
+        posture = posture + "}\n";
+        return build_tool_result(id, posture);
+    }
+
+    if tool_name == "query_hardware" {
+        let cpu: CpuReport = collect_cpuinfo(fs);
+        let mem: MemReport = collect_meminfo(fs);
+
+        let mut hw: String = "{\n";
+        hw = hw + "  \"cpu_model\": \"" + json_escape(cpu.model) + "\",\n";
+        hw = hw + "  \"cpu_vendor\": \"" + json_escape(cpu.vendor) + "\",\n";
+        hw = hw + "  \"cpu_cores\": " + to_string(cpu.cores) + ",\n";
+        hw = hw + "  \"cache_size\": \"" + json_escape(cpu.cache_size) + "\",\n";
+        hw = hw + "  \"total_ram_mib\": " + to_string(mem.total_mib) + ",\n";
+        hw = hw + "  \"free_ram_mib\": " + to_string(mem.free_mib) + ",\n";
+        hw = hw + "  \"available_ram_mib\": " + to_string(mem.avail_mib) + ",\n";
+        hw = hw + "  \"swap_total_mib\": " + to_string(mem.swap_total_mib) + ",\n";
+        hw = hw + "  \"swap_used_mib\": " + to_string(mem.swap_used_mib) + "\n";
+        hw = hw + "}\n";
+        return build_tool_result(id, hw);
+    }
+
+    if tool_name == "render_mascot" {
+        let raw_name: String = json_field_raw(args, "name");
+        if chars_len(raw_name) > 0 {
+            let name_chk: String = json_field_string(args, "name");
+            if chars_len(name_chk) == 0 && raw_name != "\"\"" {
+                return build_error(id, -32602, "invalid parameter: name must be a string");
+            }
+        }
+        let raw_theme: String = json_field_raw(args, "theme");
+        if chars_len(raw_theme) > 0 {
+            let theme_chk: String = json_field_string(args, "theme");
+            if chars_len(theme_chk) == 0 && raw_theme != "\"\"" {
+                return build_error(id, -32602, "invalid parameter: theme must be a string");
+            }
+        }
+
+        let name: String = json_field_string(args, "name");
+        let theme_arg: String = json_field_string(args, "theme");
+        let theme: String = if chars_len(theme_arg) > 0 { theme_arg } else { resolve_fetch_theme(fs, env) };
+
+        let os_rel: OsRelease = collect_os_release(fs);
+        let lines: List[String] = if name == "distro" {
+            distro_lines(os_rel.id)
+        } else if name == "fedora" || name == "arch" || name == "debian" || name == "ubuntu" || name == "linux" {
+            distro_lines(name)
+        } else if name == "happy" || name == "alert" || name == "sleepy" || name == "idle" || name == "warn" || name == "success" {
+            mascot_lines(name)
+        } else {
+            mascot_lines("idle")
+        };
+
+        let styled: String = render_styled_art(lines, theme);
+        return build_tool_result(id, styled);
+    }
+
+    return build_error(id, -32601, "unknown tool: " + tool_name);
+}

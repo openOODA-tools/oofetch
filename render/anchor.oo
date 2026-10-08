@@ -8,6 +8,8 @@
 //   1. Re-export theme configuration resolver.
 //   2. Re-export two-column terminal fetch layout renderer.
 //   3. Re-export JSON metrics envelope serializer.
+//   4. Coordinate multi-target terminal presentation.
+//   5. Maintain zero-trust rendering pipeline.
 
 import "render_theme.oo";
 import "render_fetch.oo";

@@ -25,7 +25,7 @@ import "ipc/fetch_opts.oo";
 import "ipc/mcp_serve.oo";
 
 fn render_help() -> String {
-    return "oofetch 0.1.0 (openOODA sovereign system fetch)\n"
+    return "oofetch 0.2.0 (openOODA sovereign system fetch)\n"
         + "usage: oofetch [options]\n"
         + "\n"
         + "Display host architecture, operating system posture, and theme swatches.\n"
@@ -36,8 +36,10 @@ fn render_help() -> String {
         + "      --json           output system posture formatted as JSON\n"
         + "      --no-color       disable ANSI color escapes\n"
         + "      --color          force ANSI color escapes\n"
+        + "      --no-logo        disable mascot and logo art\n"
+        + "      --mascot <name>  select mascot vector (happy, alert, sleepy, idle, droid)\n"
+        + "      --logo <distro>  select distro logo (arch, fedora, debian, ubuntu, linux)\n"
         + "      --theme <name>   override active oote theme\n"
-        + "      --logo <type>    select art type: 'mascot' or 'distro' (default: mascot)\n"
         + "      --mcp            start Model Context Protocol stdio server\n";
 }
 
@@ -69,7 +71,7 @@ pub fn main(fs: &FsReadCap, proc_cap: &ProcessCap, env: &EnvCap, args: List[Stri
     }
 
     if opts.show_version {
-        print("oofetch 0.1.0 (openOODA sovereign system fetch)\n");
+        print("oofetch 0.2.0 (openOODA sovereign system fetch)\n");
         return Ok(0);
     }
 
@@ -100,16 +102,42 @@ pub fn main(fs: &FsReadCap, proc_cap: &ProcessCap, env: &EnvCap, args: List[Stri
     if opts.json_mode {
         let json_text: String = render_system_json(
             host.user, host.hostname, os_rel.pretty_name, host.machine,
-            host.kernel, up.formatted, pkg.formatted, host.shell,
+            host.kernel, host.arch, up.formatted, pkg.formatted, host.shell,
             host.terminal, cpu.formatted, mem.formatted, active_theme
         );
         print(json_text);
         return Ok(0);
     }
 
+    let mut term_width: Int = 80;
+    let mut cw: Int = 0;
+    let oo_col: Result[String, String] = env_get(env, "OO_COLUMNS");
+    if oo_col.is_ok() {
+        cw = parse_proc_int(match oo_col { Ok(s) => s, Err(_) => "" });
+    }
+    if cw <= 0 {
+        let col_res: Result[String, String] = env_get(env, "COLUMNS");
+        if col_res.is_ok() {
+            cw = parse_proc_int(match col_res { Ok(s) => s, Err(_) => "" });
+        }
+    }
+    if cw > 0 {
+        term_width = cw;
+    }
+
     let color_on: Bool = detect_color_allowed(env, opts);
-    let art: List[String] = if opts.logo_mode == "distro" {
-        distro_lines(os_rel.id)
+    let art: List[String] = if opts.no_logo || term_width < 50 {
+        list_new()
+    } else if chars_len(opts.logo_distro) > 0 {
+        if opts.logo_distro == "mascot" {
+            mascot_lines("idle")
+        } else if opts.logo_distro == "distro" {
+            distro_lines(os_rel.id)
+        } else {
+            distro_lines(opts.logo_distro)
+        }
+    } else if chars_len(opts.mascot_name) > 0 {
+        mascot_lines(opts.mascot_name)
     } else {
         mascot_lines("idle")
     };

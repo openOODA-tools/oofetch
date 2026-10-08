@@ -17,6 +17,7 @@ pub type HostReport = struct {
     hostname: String,
     machine: String,
     kernel: String,
+    arch: String,
     shell: String,
     terminal: String
 };
@@ -73,6 +74,7 @@ pub fn collect_host_info(fs: &FsReadCap, env: &EnvCap) -> HostReport {
     }
 
     let k: String = read_line_file(fs, "/proc/sys/kernel/osrelease", "Linux");
+    let a: String = read_line_file(fs, "/proc/sys/kernel/arch", "x86_64");
 
     let env_s: Result[String, String] = env_get(env, "SHELL");
     let raw_shell: String = match env_s { Ok(s) => s, Err(_) => "oosh" };
@@ -90,6 +92,7 @@ pub fn collect_host_info(fs: &FsReadCap, env: &EnvCap) -> HostReport {
         hostname: h,
         machine: m,
         kernel: k,
+        arch: a,
         shell: sh,
         terminal: term
     };

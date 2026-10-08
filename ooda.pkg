@@ -1,7 +1,7 @@
 name=oofetch
-version=0.2.1
+version=0.2.0
 deps=
-caps=FsRead,Mcp
+caps=FsRead,Process,Env,Mcp
 license=Apache-2.0
 payload=main.oo
 commit=

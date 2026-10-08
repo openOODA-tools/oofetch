@@ -24,7 +24,7 @@ curl -fsSL https://openooda-tools.github.io/oofetch/install.sh | bash
 curl -fsSL https://openooda-tools.github.io/oofetch/install.sh | bash -s -- --apt
 
 # Or manual package install
-sudo dpkg -i oofetch_0.1.0-1_amd64.deb
+sudo dpkg -i oofetch_0.2.0-1_amd64.deb
 ```
 
 ### Fedora / RHEL / CentOS (DNF)
@@ -33,7 +33,7 @@ sudo dpkg -i oofetch_0.1.0-1_amd64.deb
 curl -fsSL https://openooda-tools.github.io/oofetch/install.sh | bash -s -- --dnf
 
 # Or manual RPM install
-sudo dnf install ./oofetch-0.1.0-1.x86_64.rpm
+sudo dnf install ./oofetch-0.2.0-1.x86_64.rpm
 ```
 
 ### Arch Linux (PKGBUILD)
@@ -74,8 +74,10 @@ Options:
       --json           output system posture formatted as JSON
       --no-color       disable ANSI color escapes
       --color          force ANSI color escapes
+      --no-logo        disable mascot and logo art
+      --mascot <name>  select mascot vector (happy, alert, sleepy, idle, droid)
+      --logo <distro>  select distro logo (arch, fedora, debian, ubuntu, linux)
       --theme <name>   override active oote theme
-      --logo <type>    select art type: 'mascot' or 'distro' (default: mascot)
       --mcp            start Model Context Protocol stdio server
 ```
 
@@ -87,6 +89,12 @@ oofetch
 
 # Display distribution emblem (Fedora, Arch, Debian, Linux)
 oofetch --logo distro
+
+# Display specific mascot vector
+oofetch --mascot happy
+
+# Single-column mode without ASCII logo
+oofetch --no-logo
 
 # Output machine-readable JSON for scripts and telemetry
 oofetch --json
@@ -116,8 +124,10 @@ oofetch --mcp
 ```
 
 ### Supported Tools:
-1. `host_info`: Inspects OS distribution, kernel, hardware product, shell, terminal, CPU model, memory usage, and active theme.
-2. `system_posture`: Returns numeric system posture metrics including uptime in seconds, memory percentage, core count, and package counts.
+1. `host_info`: Inspects OS distribution, kernel, architecture, hardware product, shell, terminal, CPU model, memory usage, and active theme.
+2. `system_posture`: Returns numeric system posture metrics including uptime in seconds, memory percentage, core count, package count, and package manager.
+3. `query_hardware`: Queries detailed CPU model, vendor, core count, cache size, total/free/available RAM, and swap total/used.
+4. `render_mascot`: Renders styled ASCII mascot or distribution logo art with optional theme coloring.
 
 ---
 

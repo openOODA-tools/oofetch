@@ -32,6 +32,7 @@ pub fn render_system_json(
     os_name: String,
     machine: String,
     kernel: String,
+    arch: String,
     uptime_fmt: String,
     packages_fmt: String,
     shell: String,
@@ -46,6 +47,7 @@ pub fn render_system_json(
     out = out + "  \"os\": \"" + escape_json_str(os_name) + "\",\n";
     out = out + "  \"machine\": \"" + escape_json_str(machine) + "\",\n";
     out = out + "  \"kernel\": \"" + escape_json_str(kernel) + "\",\n";
+    out = out + "  \"arch\": \"" + escape_json_str(arch) + "\",\n";
     out = out + "  \"uptime\": \"" + escape_json_str(uptime_fmt) + "\",\n";
     out = out + "  \"packages\": \"" + escape_json_str(packages_fmt) + "\",\n";
     out = out + "  \"shell\": \"" + escape_json_str(shell) + "\",\n";

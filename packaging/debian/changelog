@@ -1,3 +1,9 @@
+oofetch (0.2.0-1) stable; urgency=low
+
+  * S+ tier release: full MCP JSON-RPC 2.0 stdio server, 4 agent tools, terminal width adaptation, and expanded mascot/logo support.
+
+ -- openOODA-tools <ops@openooda.org>  Wed, 07 Oct 2026 12:00:00 -1000
+
 oofetch (0.1.0-1) stable; urgency=low
 
   * Initial sovereign release: instant system fetch, oote palette swatches, and MCP stdio surface.

@@ -8,6 +8,8 @@
 //   1. Re-export OS release identity collector.
 //   2. Re-export host and hardware context collector.
 //   3. Re-export package tally collector.
+//   4. Expose host posture ingestion primitives.
+//   5. Maintain strict capability containment.
 
 import "os_release.oo";
 import "host_info.oo";

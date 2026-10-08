@@ -7,8 +7,10 @@
 // Beats:
 //   1. Re-export fetch options parser.
 //   2. Re-export JSON field helper utilities.
-//   3. Re-export MCP stdio server.
+//   3. Re-export MCP tool dispatcher.
+//   4. Re-export MCP stdio server.
 
 import "fetch_opts.oo";
 import "json_field.oo";
+import "tool_dispatch.oo";
 import "mcp_serve.oo";

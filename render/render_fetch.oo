@@ -29,15 +29,17 @@ fn format_key(key: String, color_on: Bool, accent: String) -> String {
     return ansi_c("1;" + accent, color_on) + key + ansi_rst(color_on);
 }
 
-fn color_swatches(color_on: Bool) -> String {
+fn color_swatches(color_on: Bool, has_indent: Bool) -> String {
     if !color_on { return ""; }
-    let mut out: String = "               ";
+    let indent: String = if has_indent { "               " } else { "" };
+    let mut out: String = indent;
     let mut c: Int = 40;
     while c <= 47 {
         out = out + esc() + "[" + to_string(c) + "m   " + esc() + "[0m";
         c = c + 1;
     }
-    out = out + "\n               ";
+    let indent2: String = if has_indent { "               " } else { "" };
+    out = out + "\n" + indent2;
     let mut b: Int = 100;
     while b <= 107 {
         out = out + esc() + "[" + to_string(b) + "m   " + esc() + "[0m";
@@ -88,9 +90,19 @@ pub fn render_two_columns(
 
     let n_art: Int = list_len(art_lines);
     let n_right: Int = list_len(right);
-    let total_rows: Int = if n_art > n_right { n_art } else { n_right };
 
     let mut out: String = "\n";
+    if n_art == 0 {
+        let mut r: Int = 0;
+        while r < n_right {
+            out = out + list_get(right, r) + "\n";
+            r = r + 1;
+        }
+        out = out + "\n" + color_swatches(color_on, false) + "\n";
+        return out;
+    }
+
+    let total_rows: Int = if n_art > n_right { n_art } else { n_right };
     let mut r: Int = 0;
     while r < total_rows {
         let left_str: String = if r < n_art {
@@ -103,6 +115,6 @@ pub fn render_two_columns(
         r = r + 1;
     }
 
-    out = out + "\n" + color_swatches(color_on) + "\n";
+    out = out + "\n" + color_swatches(color_on, true) + "\n";
     return out;
 }

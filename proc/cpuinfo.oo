@@ -14,17 +14,17 @@ import "meminfo.oo";
 
 pub type CpuReport = struct {
     model: String,
+    vendor: String,
+    cache_size: String,
     cores: Int,
     formatted: String
 };
 
 fn strip_vendor_noise(name: String) -> String {
     let mut s: String = str_trim(name);
-    if str_starts_with(s, "model name") {
-        let idx: Int = str_index_of(s, ":");
-        if idx >= 0 {
-            s = str_trim(str_slice(s, idx + 1, chars_len(s)));
-        }
+    let idx: Int = str_index_of(s, ":");
+    if idx >= 0 {
+        s = str_trim(str_slice(s, idx + 1, chars_len(s)));
     }
     return s;
 }
@@ -32,11 +32,19 @@ fn strip_vendor_noise(name: String) -> String {
 pub fn collect_cpuinfo(fs: &FsReadCap) -> CpuReport {
     let content: String = read_proc_text(fs, "/proc/cpuinfo");
     if content == "" {
-        return CpuReport { model: "Unknown", cores: 0, formatted: "Unknown CPU" };
+        return CpuReport {
+            model: "Unknown",
+            vendor: "Unknown",
+            cache_size: "Unknown",
+            cores: 0,
+            formatted: "Unknown CPU"
+        };
     }
     let n: Int = chars_len(content);
     let mut cur: String = "";
     let mut model: String = "";
+    let mut vendor: String = "";
+    let mut cache_sz: String = "";
     let mut core_count: Int = 0;
     let mut i: Int = 0;
     while i < n {
@@ -47,6 +55,10 @@ pub fn collect_cpuinfo(fs: &FsReadCap) -> CpuReport {
                 core_count = core_count + 1;
             } else if model == "" && str_starts_with(t, "model name") {
                 model = strip_vendor_noise(t);
+            } else if vendor == "" && str_starts_with(t, "vendor_id") {
+                vendor = strip_vendor_noise(t);
+            } else if cache_sz == "" && str_starts_with(t, "cache size") {
+                cache_sz = strip_vendor_noise(t);
             }
             cur = "";
         } else if c != "\r" {
@@ -58,12 +70,18 @@ pub fn collect_cpuinfo(fs: &FsReadCap) -> CpuReport {
         let t: String = str_trim(cur);
         if str_starts_with(t, "processor") { core_count = core_count + 1; }
         else if model == "" && str_starts_with(t, "model name") { model = strip_vendor_noise(t); }
+        else if vendor == "" && str_starts_with(t, "vendor_id") { vendor = strip_vendor_noise(t); }
+        else if cache_sz == "" && str_starts_with(t, "cache size") { cache_sz = strip_vendor_noise(t); }
     }
     if model == "" { model = "Generic CPU"; }
+    if vendor == "" { vendor = "Generic"; }
+    if cache_sz == "" { cache_sz = "Unknown"; }
     let cores: Int = if core_count > 0 { core_count } else { 1 };
     let fmt: String = model + " (" + to_string(cores) + ")";
     return CpuReport {
         model: model,
+        vendor: vendor,
+        cache_size: cache_sz,
         cores: cores,
         formatted: fmt
     };
